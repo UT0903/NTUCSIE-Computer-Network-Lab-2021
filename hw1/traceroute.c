@@ -42,7 +42,7 @@ unsigned short checksum(unsigned short *buf, int bufsz){
 
 void Print_Format(int idx, char hostname[3][128], char srcIP[3][32], int usec_info[3]){
     char *prev_name = "";
-    fprintf(stderr, "%d", idx);
+    fprintf(stderr, "%2d", idx);
     for(int i = 0; i < 3; i++){
         //printf("%d\n", usec_info[i]);
         if(strcmp(prev_name, hostname[i]) == 0){
@@ -78,7 +78,7 @@ int main(int argc, char *argv[]){
     // Set timeout
     // TODO
     struct timeval timeout;      
-    timeout.tv_sec = 10;
+    timeout.tv_sec = 3;
     timeout.tv_usec = 0;
 
     if (setsockopt (icmpfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout)) < 0)
@@ -128,10 +128,11 @@ int main(int argc, char *argv[]){
             float interval[4] = {};
             // TODO
             memset(&recvAddr, 0, sizeof(struct sockaddr_in));
-            if(recvfrom(icmpfd, recvBuf, sizeof(recvBuf), 0, &recvAddr, sizeof(recvAddr)) < 0){
-                fprintf(stderr, "no respond\n");
-                //noRespond = 1;
-                //break;
+            int recv_size = sizeof(recvAddr);
+            if(recvfrom(icmpfd, recvBuf, sizeof(recvBuf), 0,  &recvAddr, &recv_size) < 0){
+                fprintf(stderr, "%2d * * *\n", h);
+                noRespond = 1;
+                break;
             }
             
             recvIP = (struct ip *)recvBuf;
