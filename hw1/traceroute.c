@@ -133,10 +133,13 @@ int main(int argc, char *argv[]){
                 // Get source hostname and ip address 
                 getnameinfo((struct sockaddr *)&recvAddr, sizeof(recvAddr), hostname[c], sizeof(hostname[c]), NULL, 0, 0); 
                 strcpy(srcIP[c], inet_ntoa(recvIP->ip_src));
-                if(icmpType == 0){
+                if(icmpType == ICMP_ECHOREPLY){
+                    printf("end\n");
                     finish = 1;
                 }
-
+                else if (icmpType == ICMP_UNREACH) {
+                    printf("Unreachable\n");
+                }
                 // Print the result
                 // TODO
             }    
