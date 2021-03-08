@@ -81,8 +81,7 @@ int main(int argc, char *argv[]){
     timeout.tv_sec = 10;
     timeout.tv_usec = 0;
 
-    if (setsockopt (icmpfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
-                sizeof(timeout)) < 0)
+    if (setsockopt (icmpfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout)) < 0)
         perror("setsockopt failed\n");
 
 
@@ -101,6 +100,7 @@ int main(int argc, char *argv[]){
         char srcIP[count][32];
         char hostname[count][128];
         int usec_info[count];
+        int noRespond = 0;
         for(int c = 0; c < count; c++){
             // Set ICMP Header
             // TODO
@@ -122,14 +122,18 @@ int main(int argc, char *argv[]){
             struct icmp *recvICMP;
             
             u_int8_t icmpType;
-            char recvBuf[1500];
+            char recvBuf[1500] = {};
             
             
             float interval[4] = {};
             // TODO
             memset(&recvAddr, 0, sizeof(struct sockaddr_in));
-            recvfrom(icmpfd, recvBuf, sizeof(recvBuf), 0, &recvAddr, sizeof(recvAddr));
-            //fprintf(stderr, "recv hop: %d, c: %d\n", h, c+1);
+            if(recvfrom(icmpfd, recvBuf, sizeof(recvBuf), 0, &recvAddr, sizeof(recvAddr)) < 0){
+                fprintf(stderr, "no respond\n");
+                //noRespond = 1;
+                //break;
+            }
+            
             recvIP = (struct ip *)recvBuf;
             recvICMP = (struct icmp *) (recvBuf + recvIP->ip_hl * 4);
             icmpType = recvICMP -> icmp_type;
@@ -154,9 +158,10 @@ int main(int argc, char *argv[]){
                 //fprintf(stderr, "ret error\n");
                 strcpy(hostname[c], srcIP[c]);
             }
+            //fprintf(stderr, "recv hop: %d, c: %d\n", h, c+1);
+            
         }
-
-        Print_Format(h, hostname, srcIP, usec_info);
+        if(!noRespond) Print_Format(h, hostname, srcIP, usec_info);
 
         if(finish){
             break;
