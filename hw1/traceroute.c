@@ -44,12 +44,13 @@ void Print_Format(int idx, char hostname[3][128], char srcIP[3][32], int usec_in
     char *prev_name = "";
     fprintf(stderr, "%d", idx);
     for(int i = 0; i < 3; i++){
+        //printf("%d\n", usec_info[i]);
         if(strcmp(prev_name, hostname[i]) == 0){
-            //printf("fuuuck\n");
-            fprintf(stderr, " %.3f ms", (double)usec_info[i] / 1000.0);
+            
+            fprintf(stderr, " %.3f ms", ((double)usec_info[i] / 1000.0 < 0)?0:((double)usec_info[i] / 1000.0));
         }
         else{
-            fprintf(stderr, " %s (%s) %.3f ms", hostname[i], srcIP[i], (double)usec_info[i] / 1000.0);
+            fprintf(stderr, " %s (%s) %.3f ms", hostname[i], srcIP[i], ((double)usec_info[i] / 1000.0 < 0)?0:((double)usec_info[i] / 1000.0));
             prev_name = hostname[i];
         }
     }
@@ -133,12 +134,18 @@ int main(int argc, char *argv[]){
             recvICMP = (struct icmp *) (recvBuf + recvIP->ip_hl * 4);
             icmpType = recvICMP -> icmp_type;
             if(icmpType == ICMP_TIMXCEED) {
-                //printf("TimeOut\n");
                 gettimeofday(&end, NULL);
+                //fprintf(stderr, "stderr %ld %ld %ld %ld", begin.tv_sec, begin.tv_usec, end.tv_sec, end.tv_usec);
                 usec_info[c] = (end.tv_sec - begin.tv_sec)*1000000 + (end.tv_usec - begin.tv_usec);
             }
             else if (icmpType == ICMP_UNREACH) {
                 fprintf(stderr, "Unreachable\n");
+            }
+            else if(icmpType == ICMP_ECHOREPLY){
+                gettimeofday(&end, NULL);
+                //fprintf(stderr, "stderr %ld %ld %ld %ld", begin.tv_sec, begin.tv_usec, end.tv_sec, end.tv_usec);
+                usec_info[c] = (end.tv_sec - begin.tv_sec)*1000000 + (end.tv_usec - begin.tv_usec);
+                finish = 1;
             }
             // Get source hostname and ip address
             strcpy(srcIP[c], inet_ntoa(recvIP->ip_src));
@@ -147,13 +154,6 @@ int main(int argc, char *argv[]){
                 //fprintf(stderr, "ret error\n");
                 strcpy(hostname[c], srcIP[c]);
             }
-            
-            if(icmpType == ICMP_ECHOREPLY){
-                finish = 1;
-            }
-
-            // Print the result
-            // TODO
         }
 
         Print_Format(h, hostname, srcIP, usec_info);
