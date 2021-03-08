@@ -136,7 +136,9 @@ int main(int argc, char *argv[]){
                 gettimeofday(&end, NULL);
                 usec_info[c] = (end.tv_sec - begin.tv_sec)*1000000 + (end.tv_usec - begin.tv_usec);
             }
-
+            else if (icmpType == ICMP_UNREACH) {
+                fprintf(stderr, "Unreachable\n");
+            }
             // Get source hostname and ip address
             strcpy(srcIP[c], inet_ntoa(recvIP->ip_src));
             int ret = 0;
@@ -145,9 +147,10 @@ int main(int argc, char *argv[]){
                 strcpy(hostname[c], srcIP[c]);
             }
             
-            if(icmpType == 0){
+            if(icmpType == ICMP_ECHOREPLY){
                 finish = 1;
             }
+
             // Print the result
             // TODO
         }
