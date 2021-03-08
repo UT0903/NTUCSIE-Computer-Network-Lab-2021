@@ -41,19 +41,16 @@ unsigned short checksum(unsigned short *buf, int bufsz){
 }
 
 void Print_Format(int idx, char hostname[3][128], char srcIP[3][32], int usec_info[3]){
-    char *prev_name = "";
+    char *prev_ip = "";
     fprintf(stderr, "%d", idx);
     for(int i = 0; i < 3; i++){
-        if(strcmp(prev_name, hostname[i]) == 0){
+        if(strcmp(prev_ip, srcIP[i]) == 0){
             //printf("fuuuck\n");
             fprintf(stderr, " %f ms", (double)usec_info[i] / 1000.0);
         }
         else{
-            if(strcmp("no", hostname[i]) == 0){
-                strcpy(hostname[i], srcIP[i]);
-            }
             fprintf(stderr, " %s (%s) %f ms", hostname[i], srcIP[i], (double)usec_info[i] / 1000.0);
-            prev_name = hostname[i];
+            prev_ip = hostname[i];
         }
     }
     fprintf(stderr, "\n");
@@ -122,7 +119,7 @@ int main(int argc, char *argv[]){
                 // TODO
                 gettimeofday(&begin, NULL);
                 sendto(icmpfd, (char*)&sendICMP, sizeof(sendICMP), 0, (const struct sockaddr *)&sendAddr, sizeof(sendAddr));
-                fprintf(stderr, "send hop: %d, c: %d\n", h, c+1);
+                //fprintf(stderr, "send hop: %d, c: %d\n", h, c+1);
                 // Recive ICMP reply, need to check the identifier and sequence number
                 struct ip *recvIP;
                 struct icmp *recvICMP;
@@ -135,24 +132,27 @@ int main(int argc, char *argv[]){
                 // TODO
                 memset(&recvAddr, 0, sizeof(struct sockaddr_in));
                 recvfrom(icmpfd, recvBuf, sizeof(recvBuf), 0, &recvAddr, sizeof(recvAddr));
-                fprintf(stderr, "recv hop: %d, c: %d\n", h, c+1);
+                //fprintf(stderr, "recv hop: %d, c: %d\n", h, c+1);
                 recvIP = (struct ip *)recvBuf;
                 recvICMP = (struct icmp *) (recvBuf + recvIP->ip_hl * 4);
                 icmpType = recvICMP -> icmp_type;
                 if(icmpType == ICMP_TIMXCEED) {
-                    //printf("TimeOut\n");
+                    fprintf(stderr, "TimeOut\n");
                     gettimeofday(&end, NULL);
                     usec_info[c] = (end.tv_sec - begin.tv_sec)*1000000 + (end.tv_usec - begin.tv_usec);
                 }
 
                 // Get source hostname and ip address 
-                int ret = 0;
-                if(ret = getnameinfo((struct sockaddr *)&recvAddr, sizeof(recvAddr), (char *)&hostname[c], sizeof(hostname[c]), NULL, 0, 0) < 0){
-                    //fprintf(stderr, "ret error\n");
-                    strcpy(hostname[c], "no");
-                }
                 strcpy(srcIP[c], inet_ntoa(recvIP->ip_src));
-                if(icmpType == ICMP_ECHOREPLY){
+                fprintf(stderr, "%s\n", srcIP[c]);
+                int ret = 0;
+                if((ret = getnameinfo((struct sockaddr *)&recvAddr, sizeof(recvAddr), (char *)&hostname[c], \
+                    sizeof(hostname[c]), NULL, 0, 0)) < 0){
+                    fprintf(stderr, "ret error\n");
+                    strcpy(hostname[c], srcIP[c]);
+                }
+                
+                if(icmpType == 0){
                     printf("end\n");
                     finish = 1;
                 }
