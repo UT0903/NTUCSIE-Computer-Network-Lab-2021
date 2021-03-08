@@ -46,10 +46,10 @@ void Print_Format(int idx, char hostname[3][128], char srcIP[3][32], int usec_in
     for(int i = 0; i < 3; i++){
         if(strcmp(prev_name, hostname[i]) == 0){
             //printf("fuuuck\n");
-            fprintf(stderr, " %f ms", (double)usec_info[i] / 1000.0);
+            fprintf(stderr, " %.3f ms", (double)usec_info[i] / 1000.0);
         }
         else{
-            fprintf(stderr, " %s (%s) %f ms", hostname[i], srcIP[i], (double)usec_info[i] / 1000.0);
+            fprintf(stderr, " %s (%s) %.3f ms", hostname[i], srcIP[i], (double)usec_info[i] / 1000.0);
             prev_name = hostname[i];
         }
     }
@@ -93,7 +93,7 @@ int main(int argc, char *argv[]){
     int seq = 0; // increasing sequence number for icmp packet
     int count = 3; // sending count for each ttl
     printf("traceroute to %s (%s), %d hops max\n", dest, ip, maxHop);
-    memset(&sendICMP, 0, sizeof(sendICMP));
+    
     for(int h = 1; h < maxHop; h++){
         setsockopt(icmpfd, IPPROTO_IP, IP_TTL, &h, sizeof(h));
         //fprintf(stderr, "ok");
@@ -103,6 +103,7 @@ int main(int argc, char *argv[]){
         for(int c = 0; c < count; c++){
             // Set ICMP Header
             // TODO
+            memset(&sendICMP, 0, sizeof(sendICMP));
             sendICMP.icmp_code = 0;
             sendICMP.icmp_type = ICMP_ECHO;
             sendICMP.icmp_hun.ih_idseq.icd_id = 5566;
@@ -114,7 +115,7 @@ int main(int argc, char *argv[]){
             // TODO
             gettimeofday(&begin, NULL);
             sendto(icmpfd, (char*)&sendICMP, sizeof(sendICMP), 0, (const struct sockaddr *)&sendAddr, sizeof(sendAddr));
-            fprintf(stderr, "send hop: %d, c: %d\n", h, c+1);
+            //fprintf(stderr, "send hop: %d, c: %d\n", h, c+1);
             // Recive ICMP reply, need to check the identifier and sequence number
             struct ip *recvIP;
             struct icmp *recvICMP;
@@ -127,7 +128,7 @@ int main(int argc, char *argv[]){
             // TODO
             memset(&recvAddr, 0, sizeof(struct sockaddr_in));
             recvfrom(icmpfd, recvBuf, sizeof(recvBuf), 0, &recvAddr, sizeof(recvAddr));
-            fprintf(stderr, "recv hop: %d, c: %d\n", h, c+1);
+            //fprintf(stderr, "recv hop: %d, c: %d\n", h, c+1);
             recvIP = (struct ip *)recvBuf;
             recvICMP = (struct icmp *) (recvBuf + recvIP->ip_hl * 4);
             icmpType = recvICMP -> icmp_type;
