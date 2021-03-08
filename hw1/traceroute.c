@@ -59,39 +59,41 @@ void Print_Format(int idx, char hostname[3][128], char srcIP[3][32], int usec_in
     fprintf(stderr, "\n");
 }
 int main(int argc, char *argv[]){
-    char *dest = argv[1];
-    //fprintf(stderr, "%s\n", argv[1]);
-    char *ip = DNSLookup(dest);
-    if(ip == NULL){
-        printf("traceroute: unknown host %s\n", dest);
-        exit(1);
+    char *type = argv[1];
+    char *dest = argv[2];
+    if (!strcmp(type, "TCP")) {
+
     }
-    int icmpfd;
-    if((icmpfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) < 0){
-        printf("Can not open socket\n");
-        exit(1);
+    else if (!strcmp(type, "UDP")) {
+
     }
-    
-    struct sockaddr_in sendAddr, recvAddr;
-    sendAddr.sin_port = htons (7);
-    sendAddr.sin_family = AF_INET;
-    inet_pton(AF_INET, ip, &(sendAddr.sin_addr));
-    
-    // Set timeout
-    // TODO
-    struct timeval timeout;      
-    timeout.tv_sec = 10;
-    timeout.tv_usec = 0;
+    else if (!strcmp(type, "ICMP")) {
+        //fprintf(stderr, "%s\n", argv[1]);
+        char *ip = DNSLookup(dest);
+        if(ip == NULL){
+            printf("traceroute: unknown host %s\n", dest);
+            exit(1);
+        }
+        int icmpfd;
+        if((icmpfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) < 0){
+            printf("Can not open socket\n");
+            exit(1);
+        }
+        
+        struct sockaddr_in sendAddr, recvAddr;
+        sendAddr.sin_port = htons (7);
+        sendAddr.sin_family = AF_INET;
+        inet_pton(AF_INET, ip, &(sendAddr.sin_addr));
+        
+        // Set timeout
+        // TODO
+        struct timeval timeout;      
+        timeout.tv_sec = 10;
+        timeout.tv_usec = 0;
 
-    if (setsockopt (icmpfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
-                sizeof(timeout)) < 0)
-        perror("setsockopt failed\n");
-
-    if (setsockopt (icmpfd, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout,
-                sizeof(timeout)) < 0)
-        perror("setsockopt failed\n");
-
-
+        if (setsockopt (icmpfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
+                    sizeof(timeout)) < 0)
+            perror("setsockopt failed\n");
     int finish = 0; // if the packet reaches the destination
     int maxHop = 64; // maximum hops
     struct icmp sendICMP; 
@@ -150,11 +152,13 @@ int main(int argc, char *argv[]){
                 strcpy(hostname[c], "no");
             }
             strcpy(srcIP[c], inet_ntoa(recvIP->ip_src));
-            if(icmpType == 0){
+            if(icmpType == ICMP_ECHOREPLY){
+                printf("end\n");
                 finish = 1;
             }
-            // Print the result
-            // TODO
+            else if (icmpType == ICMP_UNREACH) {
+                printf("Unreachable\n");
+            }
         }
 
         Print_Format(h, hostname, srcIP, usec_info);
@@ -162,7 +166,7 @@ int main(int argc, char *argv[]){
         if(finish){
             break;
         }
+        close(icmpfd);
     }
-    close(icmpfd);
     return 0;
 }
