@@ -40,7 +40,24 @@ unsigned short checksum(unsigned short *buf, int bufsz){
     return ~sum;
 }
 
-
+void Print_Format(int idx, char hostname[3][128], char srcIP[3][32], int usec_info[3]){
+    char *prev_name = "";
+    fprintf(stderr, "%d", idx);
+    for(int i = 0; i < 3; i++){
+        if(strcmp(prev_name, hostname[i]) == 0){
+            //printf("fuuuck\n");
+            fprintf(stderr, " %f ms", (double)usec_info[i] / 1000.0);
+        }
+        else{
+            if(strcmp("no", hostname[i]) == 0){
+                strcpy(hostname[i], srcIP[i]);
+            }
+            fprintf(stderr, " %s (%s) %f ms", hostname[i], srcIP[i], (double)usec_info[i] / 1000.0);
+            prev_name = hostname[i];
+        }
+    }
+    fprintf(stderr, "\n");
+}
 int main(int argc, char *argv[]){
     char *dest = argv[1];
     //fprintf(stderr, "%s\n", argv[1]);
@@ -84,10 +101,11 @@ int main(int argc, char *argv[]){
     printf("traceroute to %s (%s), %d hops max\n", dest, ip, maxHop);
     memset(&sendICMP, 0, sizeof(sendICMP));
     for(int h = 1; h < maxHop; h++){
-        // Set TTL
-        // TODO
         setsockopt(icmpfd, IPPROTO_IP, IP_TTL, &h, sizeof(h));
         //fprintf(stderr, "ok");
+        char srcIP[count][32];
+        char hostname[count][128];
+        int usec_info[count];
         for(int c = 0; c < count; c++){
             // Set ICMP Header
             // TODO
@@ -109,8 +127,8 @@ int main(int argc, char *argv[]){
             
             u_int8_t icmpType;
             char recvBuf[1500];
-            char hostname[4][128];
-            char srcIP[4][32];
+            
+            
             float interval[4] = {};
             // TODO
             memset(&recvAddr, 0, sizeof(struct sockaddr_in));
@@ -122,21 +140,25 @@ int main(int argc, char *argv[]){
             if(icmpType == ICMP_TIMXCEED) {
                 //printf("TimeOut\n");
                 gettimeofday(&end, NULL);
-                int usec = (end.tv_sec - begin.tv_sec)*1000000 + (end.tv_usec - begin.tv_usec);
-                fprintf(stderr, "usec: %d\n", usec);
-                continue;
+                usec_info[c] = (end.tv_sec - begin.tv_sec)*1000000 + (end.tv_usec - begin.tv_usec);
             }
 
             // Get source hostname and ip address 
-            getnameinfo((struct sockaddr *)&recvAddr, sizeof(recvAddr), hostname[c], sizeof(hostname[c]), NULL, 0, 0); 
+            int ret = 0;
+            if(ret = getnameinfo((struct sockaddr *)&recvAddr, sizeof(recvAddr), (char *)&hostname[c], sizeof(hostname[c]), NULL, 0, 0) < 0){
+                //fprintf(stderr, "ret error\n");
+                strcpy(hostname[c], "no");
+            }
             strcpy(srcIP[c], inet_ntoa(recvIP->ip_src));
             if(icmpType == 0){
                 finish = 1;
             }
-
             // Print the result
             // TODO
-        }    
+        }
+
+        Print_Format(h, hostname, srcIP, usec_info);
+
         if(finish){
             break;
         }
