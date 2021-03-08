@@ -49,9 +49,6 @@ void Print_Format(int idx, char hostname[3][128], char srcIP[3][32], int usec_in
             fprintf(stderr, " %f ms", (double)usec_info[i] / 1000.0);
         }
         else{
-            if(strcmp("no", hostname[i]) == 0){
-                strcpy(hostname[i], srcIP[i]);
-            }
             fprintf(stderr, " %s (%s) %f ms", hostname[i], srcIP[i], (double)usec_info[i] / 1000.0);
             prev_name = hostname[i];
         }
@@ -87,9 +84,6 @@ int main(int argc, char *argv[]){
                 sizeof(timeout)) < 0)
         perror("setsockopt failed\n");
 
-    if (setsockopt (icmpfd, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout,
-                sizeof(timeout)) < 0)
-        perror("setsockopt failed\n");
 
 
     int finish = 0; // if the packet reaches the destination
@@ -143,13 +137,14 @@ int main(int argc, char *argv[]){
                 usec_info[c] = (end.tv_sec - begin.tv_sec)*1000000 + (end.tv_usec - begin.tv_usec);
             }
 
-            // Get source hostname and ip address 
+            // Get source hostname and ip address
+            strcpy(srcIP[c], inet_ntoa(recvIP->ip_src));
             int ret = 0;
             if(ret = getnameinfo((struct sockaddr *)&recvAddr, sizeof(recvAddr), (char *)&hostname[c], sizeof(hostname[c]), NULL, 0, 0) < 0){
                 //fprintf(stderr, "ret error\n");
-                strcpy(hostname[c], "no");
+                strcpy(hostname[c], srcIP[c]);
             }
-            strcpy(srcIP[c], inet_ntoa(recvIP->ip_src));
+            
             if(icmpType == 0){
                 finish = 1;
             }
