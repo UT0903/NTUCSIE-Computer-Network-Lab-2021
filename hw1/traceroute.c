@@ -120,8 +120,11 @@ int main(int argc, char *argv[]){
             recvICMP = (struct icmp *) (recvBuf + recvIP->ip_hl * 4);
             icmpType = recvICMP -> icmp_type;
             if(icmpType == ICMP_TIMXCEED) {
-                 printf("TimeOut\n");
-                 continue;
+                //printf("TimeOut\n");
+                gettimeofday(&end, NULL);
+                int usec = (end.tv_sec - begin.tv_sec)*1000000 + (end.tv_usec - begin.tv_usec);
+                fprintf(stderr, "usec: %d\n", usec);
+                continue;
             }
 
             // Get source hostname and ip address 
