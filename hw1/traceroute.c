@@ -11,7 +11,6 @@
 #include<arpa/inet.h>
 #include<netdb.h>
 #include<sys/time.h>
-#include<iostream>
 
 char *DNSLookup(char *host){
     struct hostent *ghbn = gethostbyname(host);//change the domain name
@@ -103,27 +102,27 @@ int main(int argc, char *argv[]){
             // TODO
             gettimeofday(&begin, NULL);
             sendto(icmpfd, (char*)&sendICMP, sizeof(sendICMP), 0, (const struct sockaddr *)&sendAddr, sizeof(sendAddr));
-            
+            fprintf(stderr, "send hop: %d, c: %d\n", h, c+1);
             // Recive ICMP reply, need to check the identifier and sequence number
             struct ip *recvIP;
             struct icmp *recvICMP;
             
             u_int8_t icmpType;
-            unsigned int recvLength = sizeof(recvAddr);
             char recvBuf[1500];
             char hostname[4][128];
             char srcIP[4][32];
             float interval[4] = {};
             // TODO
             memset(&recvAddr, 0, sizeof(struct sockaddr_in));
-            // recvfrom(icmpfd, recvBuf, sizeof(recvBuf), 0, &recvAddr, recvLength);
-            // recvIP = (struct ip *)recvBuf;
-            // recvICMP = (struct icmp *) (recvBuf + recvIP->ip_hl * 4);
-            // icmpType = recvICMP -> icmp_type;
-            // if(icmpType == ICMP_TIMXCEED) {
-            //     printf("TimeOut\n");
-            //     continue;
-            // }
+            recvfrom(icmpfd, recvBuf, sizeof(recvBuf), 0, &recvAddr, sizeof(recvAddr));
+            fprintf(stderr, "recv hop: %d, c: %d\n", h, c+1);
+            recvIP = (struct ip *)recvBuf;
+            recvICMP = (struct icmp *) (recvBuf + recvIP->ip_hl * 4);
+            icmpType = recvICMP -> icmp_type;
+            if(icmpType == ICMP_TIMXCEED) {
+                 printf("TimeOut\n");
+                 continue;
+            }
 
             // Get source hostname and ip address 
             getnameinfo((struct sockaddr *)&recvAddr, sizeof(recvAddr), hostname[c], sizeof(hostname[c]), NULL, 0, 0); 
