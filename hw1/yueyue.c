@@ -7,10 +7,14 @@
 #include<errno.h>
 #include<netinet/in.h>
 #include<netinet/ip.h>
+#include<netinet/udp.h>
 #include<netinet/ip_icmp.h>
 #include<arpa/inet.h>
 #include<netdb.h>
 #include<sys/time.h>
+
+#define DATAGRAM_LEN sizeof(struct udpiphdr) + sizeof(struct udpiphdr)
+
 
 char *DNSLookup(char *host){
     struct hostent *ghbn = gethostbyname(host);//change the domain name
@@ -56,6 +60,34 @@ void Print_Format(int idx, char hostname[3][128], char srcIP[3][32], int usec_in
     }
     fprintf(stderr, "\n");
 }
+
+char *new_packet(int ttl, struct sockaddr_in sin) {
+    static int id = 0;
+    char *datagram = malloc(DATAGRAM_LEN);
+    struct iphdr *iph = (struct iphdr*) datagram;
+    struct udphdr *udph = (struct udphdr*)(datagram + sizeof (struct iphdr));
+
+    iph->ihl = 5;
+    iph->version = 4;
+    iph->tos = 0;
+    iph->tot_len = DATAGRAM_LEN;
+    iph->id = htonl(++id); //Id of this packet
+    iph->frag_off = 0;
+    iph->ttl = ttl;
+    iph->protocol = IPPROTO_UDP;
+    iph->saddr = inet_addr("127.0.0.1");//Spoof the source ip address
+    iph->daddr = sin.sin_addr.s_addr;
+    iph->check = checksum((unsigned short*)datagram, iph->tot_len);
+    
+    udph ->uh_sport = htons(6666);
+    udph -> uh_dport = htons(8622);
+    udph -> uh_ulen = htons(8); //udp header size
+    udph -> uh_sum = checksum((unsigned short*)datagram, DATAGRAM_LEN);
+
+    return datagram;
+}
+
+
 int main(int argc, char *argv[]){
     char *dest = argv[1];
     //fprintf(stderr, "%s\n", argv[1]);
@@ -65,7 +97,7 @@ int main(int argc, char *argv[]){
         exit(1);
     }
     int icmpfd;
-    if((icmpfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) < 0){
+    if((icmpfd = socket(AF_INET, SOCK_RAW, IPPROTO_UDP)) < 0){
         printf("Can not open socket\n");
         exit(1);
     }
@@ -104,18 +136,19 @@ int main(int argc, char *argv[]){
         for(int c = 0; c < count; c++){
             // Set ICMP Header
             // TODO
-            memset(&sendICMP, 0, sizeof(sendICMP));
-            sendICMP.icmp_code = 0;
-            sendICMP.icmp_type = ICMP_ECHO;
-            sendICMP.icmp_hun.ih_idseq.icd_id = 5566;
-            sendICMP.icmp_hun.ih_idseq.icd_seq = seq;
-            // Checksum
-            // TODO
-            sendICMP.icmp_cksum = checksum((unsigned short *)&sendICMP, sizeof(sendICMP));
-            // Send the icmp packet to destination
-            // TODO
+            // memset(&sendICMP, 0, sizeof(sendICMP));
+            // sendICMP.icmp_code = 0;
+            // sendICMP.icmp_type = ICMP_ECHO;
+            // sendICMP.icmp_hun.ih_idseq.icd_id = 5566;
+            // sendICMP.icmp_hun.ih_idseq.icd_seq = seq;
+            // // Checksum
+            // // TODO
+            // sendICMP.icmp_cksum = checksum((unsigned short *)&sendICMP, sizeof(sendICMP));
+            // // Send the icmp packet to destination
+            // // TODO
+            char * packet = new_packet(h, sendAddr);
             gettimeofday(&begin, NULL);
-            sendto(icmpfd, (char*)&sendICMP, sizeof(sendICMP), 0, (const struct sockaddr *)&sendAddr, sizeof(sendAddr));
+            sendto(icmpfd, (char*)&packet, sizeof(packet), 0, (const struct sockaddr *)&sendAddr, sizeof(sendAddr));
             //fprintf(stderr, "send hop: %d, c: %d\n", h, c+1);
             // Recive ICMP reply, need to check the identifier and sequence number
             struct ip *recvIP;
