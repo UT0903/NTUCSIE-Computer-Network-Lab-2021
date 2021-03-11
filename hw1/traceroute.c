@@ -147,6 +147,12 @@ int main(int argc, char *argv[]){
                 fprintf(stderr, "Unreachable\n");
             }
             else if(icmpType == ICMP_ECHOREPLY){
+                if(recvICMP -> icmp_hun.ih_idseq.icd_id != 5566) {
+                    printf("Different ID\n");
+                }
+                if(recvICMP -> icmp_hun.ih_idseq.icd_seq != 0) {
+                    printf("Different Sequence Number\n");
+                }
                 gettimeofday(&end, NULL);
                 //fprintf(stderr, "stderr %ld %ld %ld %ld", begin.tv_sec, begin.tv_usec, end.tv_sec, end.tv_usec);
                 usec_info[c] = (end.tv_sec - begin.tv_sec)*1000000 + (end.tv_usec - begin.tv_usec);
