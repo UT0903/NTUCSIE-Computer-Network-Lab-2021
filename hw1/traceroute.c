@@ -159,7 +159,7 @@ int main(int argc, char *argv[]){
     // Set timeout
     // TODO
     struct timeval timeout;      
-    timeout.tv_sec = 10;
+    timeout.tv_sec = 3;
     timeout.tv_usec = 0;
 
     if (setsockopt (icmpfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout)) < 0)
