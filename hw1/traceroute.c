@@ -7,6 +7,7 @@
 #include<errno.h>
 #include<netinet/in.h>
 #include<netinet/ip.h>
+#include<netinet/tcp.h>
 #include<netinet/ip_icmp.h>
 #include<arpa/inet.h>
 #include<netdb.h>
@@ -42,6 +43,38 @@ unsigned short checksum(unsigned short *buf, int bufsz){
     return ~sum;
 }
 
+void set_tcp_header(struct tcphdr *tcph, int source_port){
+    tcph->source = htons ( source_port );
+    tcph->dest = htons (30000);
+    tcph->seq = htonl(1105024978);
+    tcph->ack_seq = 0;
+    tcph->doff = sizeof(struct tcphdr) / 4;     //Size of tcp header
+    tcph->fin=0;
+    tcph->syn=1;
+    tcph->rst=0;
+    tcph->psh=0;
+    tcph->ack=0;
+    tcph->urg=0;
+    //tcph->res1=0;
+    tcph->window = htons (14600); // maximum allowed window size
+    tcph->check = 0; //if you set a checksum to zero, your kernel's IP stack should fill in the correct checksum during transmission
+    tcph->urg_ptr = 0;
+}
+void set_ip_header(struct iphdr *iph, char *datagram, int ttl, char* source_ip, char *target_ip){
+    iph->ihl = 5;
+    iph->version = 4;
+    iph->tos = 0;
+    iph->tot_len = sizeof (struct ip) + sizeof (struct tcphdr);
+    iph->id = htons (54321);    //Id of this packet
+    iph->frag_off = htons(16384);
+    iph->ttl = ttl;
+    iph->protocol = IPPROTO_TCP;
+    iph->saddr = inet_addr ( source_ip );   //Spoof the source ip address
+    iph->daddr = inet_addr ( target_ip );
+    
+    iph->check = checksum ((unsigned short *) datagram, iph->tot_len >> 1);
+}
+
 void Print_Format(int idx, char hostname[3][128], char srcIP[3][32], int usec_info[3]){
     char *prev_name = "";
     fprintf(stderr, "%2d", idx);
@@ -58,6 +91,31 @@ void Print_Format(int idx, char hostname[3][128], char srcIP[3][32], int usec_in
     }
     fprintf(stderr, "\n");
 }
+
+int get_local_ip ( char * buffer){
+    int sock = socket ( AF_INET, SOCK_DGRAM, 0);
+
+    const char* kGoogleDnsIp = "8.8.8.8";
+    int dns_port = 53;
+
+    struct sockaddr_in serv;
+
+    memset( &serv, 0, sizeof(serv) );
+    serv.sin_family = AF_INET;
+    serv.sin_addr.s_addr = inet_addr(kGoogleDnsIp);
+    serv.sin_port = htons( dns_port );
+
+    int err = connect( sock , (const struct sockaddr*) &serv , sizeof(serv) );
+
+    struct sockaddr_in name;
+    socklen_t namelen = sizeof(name);
+    err = getsockname(sock, (struct sockaddr*) &name, &namelen);
+
+    const char *p = inet_ntop(AF_INET, &name.sin_addr, buffer, 100);
+
+    close(sock);
+}
+
 int main(int argc, char *argv[]){
 
     // Usage: ./traceroute [protocol] [destination]
@@ -86,12 +144,15 @@ int main(int argc, char *argv[]){
             exit(1);
         }
     } else if (mode == TCP) {
-        // TODO
+        if((tcpfd = socket(AF_INET, SOCK_RAW, IPPROTO_TCP)) < 0) {
+            printf("Can not open socket\n");
+            exit(1);
+        }
     }
 
     
     struct sockaddr_in sendAddr, recvAddr;
-    sendAddr.sin_port = (mode == ICMP) ? htons(7) : htons(7777);
+    sendAddr.sin_port = (mode == ICMP) ? htons(7) : htons(30000);
     sendAddr.sin_family = AF_INET;
     inet_pton(AF_INET, ip, &(sendAddr.sin_addr));
     
@@ -115,7 +176,7 @@ int main(int argc, char *argv[]){
     printf("traceroute to %s (%s), %d hops max\n", dest, ip, maxHop);
     
     for(int h = 1; h < maxHop; h++){
-        setsockopt(icmpfd, IPPROTO_IP, IP_TTL, &h, sizeof(h));
+        
         //fprintf(stderr, "ok");
         char srcIP[count][32];
         char hostname[count][128];
@@ -125,6 +186,7 @@ int main(int argc, char *argv[]){
             // Set ICMP Header
             // TODO
             if (mode == ICMP) {
+                setsockopt(icmpfd, IPPROTO_IP, IP_TTL, &h, sizeof(h));
                 memset(&sendICMP, 0, sizeof(sendICMP));
                 sendICMP.icmp_code = 0;
                 sendICMP.icmp_type = ICMP_ECHO;
@@ -134,10 +196,25 @@ int main(int argc, char *argv[]){
                 sendto(icmpfd, (char*)&sendICMP, sizeof(sendICMP), 0, (const struct sockaddr *)&sendAddr, sizeof(sendAddr));
             }
             else if (mode == UDP) {
+                setsockopt(udpfd, IPPROTO_IP, IP_TTL, &h, sizeof(h));
                 char empty_packet;
                 sendto(udpfd, (char*)&empty_packet, sizeof(empty_packet), 0, (struct sockaddr *)&sendAddr, sizeof(sendAddr));
             } else {
                 // TODO
+                setsockopt(tcpfd, IPPROTO_IP, IP_TTL, &h, sizeof(h));
+                char datagram[4096];
+                struct iphdr *iph = (struct iphdr *) datagram;
+                struct tcphdr *tcph = (struct tcphdr *) (datagram + sizeof (struct ip));
+                char src_ip[32];
+                get_local_ip(src_ip);
+                set_ip_header(iph, datagram, h, src_ip, ip);
+                set_tcp_header(tcph, 43591);
+                tcph->check = checksum((unsigned short *)&tcph, sizeof(tcph));
+
+                if (sendto(tcpfd, datagram , sizeof(struct iphdr) + sizeof(struct tcphdr) , 0 , (struct sockaddr *) &sendAddr, sizeof (sendAddr)) < 0){
+                    printf ("Error sending syn packet. Error number : %d . Error message : %s \n" , errno , strerror(errno));
+                    exit(1);
+                }
             }
 
             gettimeofday(&begin, NULL);
