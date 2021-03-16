@@ -144,7 +144,7 @@ int main(int argc, char *argv[]){
     inet_pton(AF_INET, ip, &(sendAddr.sin_addr));
     //TCP header
     char datagram[4096];
-    int ttl = 64;
+    int ttl = 31;
     struct iphdr *iph = (struct iphdr *) datagram;
     struct tcphdr *tcph = (struct tcphdr *) (datagram + sizeof (struct ip));
     char src_ip[32];
@@ -169,7 +169,7 @@ int main(int argc, char *argv[]){
     if(setsockopt(fd, IPPROTO_IP, IP_TTL, &h, sizeof(h)) < 0)
         perror("setsockopt failed\n");
     */
-    if (sendto(fd, datagram , sizeof(struct iphdr) + sizeof(struct tcphdr) , 0 , (struct sockaddr *) &sendAddr, sizeof (sendAddr)) < 0){
+    if (sendto(fd, datagram , sizeof(struct tcphdr) , 0 , (struct sockaddr *) &sendAddr, sizeof (sendAddr)) < 0){
             printf ("Error sending syn packet. Error number : %d . Error message : %s \n" , errno , strerror(errno));
             exit(0);
     }
