@@ -12,6 +12,8 @@
 #include<netdb.h>
 #include<sys/time.h>
 
+enum {ICMP, UDP, TCP}; 
+
 char *DNSLookup(char *host){
     struct hostent *ghbn = gethostbyname(host);//change the domain name
     //printf("in\n");
@@ -57,28 +59,46 @@ void Print_Format(int idx, char hostname[3][128], char srcIP[3][32], int usec_in
     fprintf(stderr, "\n");
 }
 int main(int argc, char *argv[]){
-    char *dest = argv[1];
+
+    // Usage: ./traceroute [protocol] [destination]
+    char *protocol = argv[1];
+    char *dest = argv[2];
+
+    int mode;
+    if (!strcmp(protocol, "ICMP")) mode = ICMP;
+    else if (!strcmp(protocol, "UDP")) mode = UDP;
+    else mode = TCP;
+
     //fprintf(stderr, "%s\n", argv[1]);
     char *ip = DNSLookup(dest);
     if(ip == NULL){
         printf("traceroute: unknown host %s\n", dest);
         exit(1);
     }
-    int icmpfd;
+    int icmpfd, udpfd, tcpfd;
     if((icmpfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) < 0){
         printf("Can not open socket\n");
         exit(1);
     }
+    if (mode == UDP) {
+        if ((udpfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+            perror("Can not open udp socket");
+            exit(1);
+        }
+    } else if (mode == TCP) {
+        // TODO
+    }
+
     
     struct sockaddr_in sendAddr, recvAddr;
-    sendAddr.sin_port = htons (7);
+    sendAddr.sin_port = (mode == ICMP) ? htons(7) : htons(7777);
     sendAddr.sin_family = AF_INET;
     inet_pton(AF_INET, ip, &(sendAddr.sin_addr));
     
     // Set timeout
     // TODO
     struct timeval timeout;      
-    timeout.tv_sec = 3;
+    timeout.tv_sec = 10;
     timeout.tv_usec = 0;
 
     if (setsockopt (icmpfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout)) < 0)
@@ -104,20 +124,24 @@ int main(int argc, char *argv[]){
         for(int c = 0; c < count; c++){
             // Set ICMP Header
             // TODO
-            memset(&sendICMP, 0, sizeof(sendICMP));
-            sendICMP.icmp_code = 0;
-            sendICMP.icmp_type = ICMP_ECHO;
-            sendICMP.icmp_hun.ih_idseq.icd_id = 5566;
-            sendICMP.icmp_hun.ih_idseq.icd_seq = seq;
-            // Checksum
-            // TODO
-            sendICMP.icmp_cksum = checksum((unsigned short *)&sendICMP, sizeof(sendICMP));
-            // Send the icmp packet to destination
-            // TODO
+            if (mode == ICMP) {
+                memset(&sendICMP, 0, sizeof(sendICMP));
+                sendICMP.icmp_code = 0;
+                sendICMP.icmp_type = ICMP_ECHO;
+                sendICMP.icmp_hun.ih_idseq.icd_id = 5566;
+                sendICMP.icmp_hun.ih_idseq.icd_seq = seq;
+                sendICMP.icmp_cksum = checksum((unsigned short *)&sendICMP, sizeof(sendICMP));
+                sendto(icmpfd, (char*)&sendICMP, sizeof(sendICMP), 0, (const struct sockaddr *)&sendAddr, sizeof(sendAddr));
+            }
+            else if (mode == UDP) {
+                char empty_packet;
+                sendto(udpfd, (char*)&empty_packet, sizeof(empty_packet), 0, (struct sockaddr *)&sendAddr, sizeof(sendAddr));
+            } else {
+                // TODO
+            }
+
             gettimeofday(&begin, NULL);
-            sendto(icmpfd, (char*)&sendICMP, sizeof(sendICMP), 0, (const struct sockaddr *)&sendAddr, sizeof(sendAddr));
-            //fprintf(stderr, "send hop: %d, c: %d\n", h, c+1);
-            // Recive ICMP reply, need to check the identifier and sequence number
+
             struct ip *recvIP;
             struct icmp *recvICMP;
             
@@ -126,7 +150,6 @@ int main(int argc, char *argv[]){
             
             
             float interval[4] = {};
-            // TODO
             memset(&recvAddr, 0, sizeof(struct sockaddr_in));
             int recv_size = sizeof(recvAddr);
             if(recvfrom(icmpfd, recvBuf, sizeof(recvBuf), 0,  &recvAddr, &recv_size) < 0){
@@ -175,5 +198,7 @@ int main(int argc, char *argv[]){
         }
     }
     close(icmpfd);
+    if (mode == UDP) close(udpfd);
+    else if (mode == TCP) close(tcpfd);
     return 0;
 }
