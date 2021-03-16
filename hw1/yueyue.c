@@ -13,7 +13,7 @@
 #include<netdb.h>
 #include<sys/time.h>
 
-#define DATAGRAM_LEN sizeof(struct udpiphdr) + sizeof(struct udpiphdr)
+#define DATAGRAM_LEN sizeof(struct ip) + sizeof(struct ip)
 
 
 char *DNSLookup(char *host){
@@ -61,30 +61,52 @@ void Print_Format(int idx, char hostname[3][128], char srcIP[3][32], int usec_in
     fprintf(stderr, "\n");
 }
 
-char *new_packet(int ttl, struct sockaddr_in sin) {
-    static int id = 0;
-    char *datagram = malloc(DATAGRAM_LEN);
-    struct iphdr *iph = (struct iphdr*) datagram;
-    struct udphdr *udph = (struct udphdr*)(datagram + sizeof (struct iphdr));
+void set_udp_header(struct udphdr *udph, char *datagram){
+    udph -> uh_sport = htons(6666);
+    udph -> uh_dport = htons(8622);
+    udph -> uh_ulen = htons(8); //udp header size
+    udph -> uh_sum = 0;
+    udph -> uh_sum = checksum((unsigned short*)datagram, DATAGRAM_LEN);
+}
 
+void set_ip_header(struct iphdr *iph, char *datagram, int ttl, char* source_ip, char *target_ip){
     iph->ihl = 5;
     iph->version = 4;
     iph->tos = 0;
-    iph->tot_len = DATAGRAM_LEN;
-    iph->id = htonl(++id); //Id of this packet
-    iph->frag_off = 0;
+    iph->tot_len = sizeof (struct iphdr) + sizeof (struct udphdr);
+    iph->id = htons (54321);    //Id of this packet
+    iph->frag_off = htons(16384);
     iph->ttl = ttl;
     iph->protocol = IPPROTO_UDP;
-    iph->saddr = inet_addr("127.0.0.1");//Spoof the source ip address
-    iph->daddr = sin.sin_addr.s_addr;
-    iph->check = checksum((unsigned short*)datagram, iph->tot_len);
+    iph->check = 0;     //Set to 0 before calculating checksum
+    iph->saddr = inet_addr ( source_ip );   //Spoof the source ip address
+    iph->daddr = inet_addr ( target_ip );
     
-    udph ->uh_sport = htons(6666);
-    udph -> uh_dport = htons(8622);
-    udph -> uh_ulen = htons(8); //udp header size
-    udph -> uh_sum = checksum((unsigned short*)datagram, DATAGRAM_LEN);
+    iph->check = checksum ((unsigned short *) datagram, iph->tot_len >> 1);
+}
 
-    return datagram;
+int get_local_ip ( char * buffer){
+    int sock = socket ( AF_INET, SOCK_DGRAM, 0);
+
+    const char* kGoogleDnsIp = "8.8.8.8";
+    int dns_port = 53;
+
+    struct sockaddr_in serv;
+
+    memset( &serv, 0, sizeof(serv) );
+    serv.sin_family = AF_INET;
+    serv.sin_addr.s_addr = inet_addr(kGoogleDnsIp);
+    serv.sin_port = htons( dns_port );
+
+    int err = connect( sock , (const struct sockaddr*) &serv , sizeof(serv) );
+
+    struct sockaddr_in name;
+    socklen_t namelen = sizeof(name);
+    err = getsockname(sock, (struct sockaddr*) &name, &namelen);
+
+    const char *p = inet_ntop(AF_INET, &name.sin_addr, buffer, 100);
+
+    close(sock);
 }
 
 
@@ -96,16 +118,23 @@ int main(int argc, char *argv[]){
         printf("traceroute: unknown host %s\n", dest);
         exit(1);
     }
+    int udpfd;
+    if((udpfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0){
+        printf("Can not open socket\n");
+        exit(1);
+    }
     int icmpfd;
-    if((icmpfd = socket(AF_INET, SOCK_RAW, IPPROTO_UDP)) < 0){
+    if((icmpfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) < 0){
         printf("Can not open socket\n");
         exit(1);
     }
     
     struct sockaddr_in sendAddr, recvAddr;
-    sendAddr.sin_port = htons (7);
+    sendAddr.sin_port = htons (23523);
     sendAddr.sin_family = AF_INET;
     inet_pton(AF_INET, ip, &(sendAddr.sin_addr));
+
+    // bind(icmpfd, (struct sockaddr*) &sendAddr, sizeof(sendAddr));
     
     // Set timeout
     // TODO
@@ -127,7 +156,7 @@ int main(int argc, char *argv[]){
     printf("traceroute to %s (%s), %d hops max\n", dest, ip, maxHop);
     
     for(int h = 1; h < maxHop; h++){
-        setsockopt(icmpfd, IPPROTO_IP, IP_TTL, &h, sizeof(h));
+        setsockopt(udpfd, IPPROTO_IP, IP_TTL, &h, sizeof(h));
         //fprintf(stderr, "ok");
         char srcIP[count][32];
         char hostname[count][128];
@@ -146,9 +175,19 @@ int main(int argc, char *argv[]){
             // sendICMP.icmp_cksum = checksum((unsigned short *)&sendICMP, sizeof(sendICMP));
             // // Send the icmp packet to destination
             // // TODO
-            char * packet = new_packet(h, sendAddr);
+
+            char datagram[4096];
+            // int ttl = 64;
+            struct iphdr *iph = (struct iphdr *) datagram;
+            struct udphdr *udph = (struct udphdr *) (datagram + sizeof (struct iphdr));
+            char src_ip[32];
+            get_local_ip(src_ip);
+            set_ip_header(iph, datagram, h, src_ip, ip);
+            set_udp_header(udph, datagram);
+
             gettimeofday(&begin, NULL);
-            sendto(icmpfd, (char*)&packet, sizeof(packet), 0, (const struct sockaddr *)&sendAddr, sizeof(sendAddr));
+            // printf("%s\n", datagram);
+            sendto(udpfd, datagram, DATAGRAM_LEN, 0, (const struct sockaddr *)&sendAddr, sizeof(sendAddr));
             //fprintf(stderr, "send hop: %d, c: %d\n", h, c+1);
             // Recive ICMP reply, need to check the identifier and sequence number
             struct ip *recvIP;
@@ -207,6 +246,7 @@ int main(int argc, char *argv[]){
             break;
         }
     }
+    close(udpfd);
     close(icmpfd);
     return 0;
 }
