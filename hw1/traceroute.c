@@ -203,15 +203,16 @@ int main(int argc, char *argv[]){
                 // TODO
                 setsockopt(tcpfd, IPPROTO_IP, IP_TTL, &h, sizeof(h));
                 char datagram[4096];
-                struct iphdr *iph = (struct iphdr *) datagram;
-                struct tcphdr *tcph = (struct tcphdr *) (datagram + sizeof (struct ip));
+                memset(&datagram, 0, sizeof(datagram));
+                //struct iphdr *iph = (struct iphdr *) datagram;
+                struct tcphdr *tcph = (struct tcphdr *) (datagram);
                 char src_ip[32];
-                get_local_ip(src_ip);
-                set_ip_header(iph, datagram, h, src_ip, ip);
+                //get_local_ip(src_ip);
+                //set_ip_header(iph, datagram, h, src_ip, ip);
                 set_tcp_header(tcph, 43591);
-                tcph->check = checksum((unsigned short *)&tcph, sizeof(tcph));
+                //tcph->check = checksum((unsigned short *)&tcph, sizeof(tcph));
 
-                if (sendto(tcpfd, datagram , sizeof(struct iphdr) + sizeof(struct tcphdr) , 0 , (struct sockaddr *) &sendAddr, sizeof (sendAddr)) < 0){
+                if (sendto(tcpfd, datagram , sizeof(struct tcphdr) , 0 , (struct sockaddr *) &sendAddr, sizeof (sendAddr)) < 0){
                     printf ("Error sending syn packet. Error number : %d . Error message : %s \n" , errno , strerror(errno));
                     exit(1);
                 }
