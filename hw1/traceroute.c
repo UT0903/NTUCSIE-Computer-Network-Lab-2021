@@ -245,7 +245,8 @@ int main(int argc, char *argv[]){
                 usec_info[c] = (end.tv_sec - begin.tv_sec)*1000000 + (end.tv_usec - begin.tv_usec);
             }
             else if (icmpType == ICMP_UNREACH) {
-                fprintf(stderr, "Unreachable\n");
+                // fprintf(stderr, "Unreachable\n");
+                finish = 1;
             }
             else if(icmpType == ICMP_ECHOREPLY){
                 if(recvICMP -> icmp_hun.ih_idseq.icd_id != 5566) {
