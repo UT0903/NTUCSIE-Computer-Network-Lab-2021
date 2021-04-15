@@ -61,13 +61,15 @@ app.get("/monitor", (req, res) => {
         res.send(retStr);
     })
 });
-app.post('/block', (req, res) =>{
+app.post('/block', (req, res) =>{ 
     let delete_ip = req.body.IP;
+    console.log(`delete IP: ${delete_ip}`);
     spawn("iptables", ["-t", "nat", "-D", "PREROUTING", "-s", delete_ip, "-j", "ACCEPT"]);
     spawn("iptables", ["-t", "nat", "-D", "PREROUTING", "-d", delete_ip, "-j", "ACCEPT"]);
     spawn("iptables", ["-D", "FORWARD", "-s", delete_ip, "-j", "ACCEPT"]);
     spawn("iptables", ["-D", "FORWARD", "-d", delete_ip, "-j", "ACCEPT"]);
-    console.log(`delete IP: ${delete_ip}`)
+    res.setHeader("Context-type", "text/html");
+    res.send(`<h1>block success</h1>`);
 });
 app.get(/\/*/, (req, res) => {
     let ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
