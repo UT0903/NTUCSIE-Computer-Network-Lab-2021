@@ -1,61 +1,42 @@
-
+from mininet.link import TCLink
+from mininet.util import dumpNodeConnections
 from mininet.topo import Topo
-from mininet.node import OVSSwitch
+class data_center(Topo):
+    def __init__(self, core_num, pod_num):
+        super(data_center,self).__init__()
  
-class OVSBridgeSTP( OVSSwitch ):
-    """Open vSwitch Ethernet bridge with Spanning Tree Protocol
-       rooted at the first bridge that is created"""
-    prio = 1000
-    def start( self, *args, **kwargs ):
-        OVSSwitch.start( self, *args, **kwargs )
-        OVSBridgeSTP.prio += 1
-        self.cmd( 'ovs-vsctl set-fail-mode', self, 'standalone' )
-        self.cmd( 'ovs-vsctl set-controller', self )
-        self.cmd( 'ovs-vsctl set Bridge', self,
-                  'stp_enable=true',
-                  'other_config:stp-priority=%d' % OVSBridgeSTP.prio )
+        #Marking the number of switch for per level
+        L1 = core_num
+        L2 = pod_num*2
+        L3 = L2
+        host = L2*2
  
-switches = { 'ovs-stp': OVSBridgeSTP }
+        #Starting create the switch
+        c = []    #core switch
+        a = []    #aggregate switch
+        e = []    #edge switch
+        h = []
+        
+        #notice: switch label is a special data structure
+        for i in range(L1):
+            c.append(self.addSwitch('c{}'.format(i)))
+        for i in range(L2):
+            a.append(self.addSwitch('a{}'.format(i+L1)))
+        for i in range(L3):
+            e.append(self.addSwitch('e{}'.format(i+L1+L2)))
+        for i in range(host):
+            h.append(self.addHost('h{}'.format(i+L1+L2+L3)))
+        for i in range(len(c)):
+            for j in range(len(a)):
+                if i % 2 == j % 2:
+                    self.addLink(c[i], a[j])
+        for i in range(0, len(a), 2):
+            self.addLink(e[i], a[i])
+            self.addLink(e[i], a[i+1])
+            self.addLink(e[i+1], a[i+1])
+            self.addLink(e[i+1], a[i])
+        for i in range(len(e)):
+            self.addLink(e[i], h[2*i])
+            self.addLink(e[i], h[2*i+1])
 
-class FatTree( Topo ):
-
-    def __init__( self, k ):
-
-        # Topology settings
-        K = k                           # K-ary FatTree
-        podNum = K                      # Pod number in FatTree
-        coreSwitchNum = pow((K/2),2)    # Core switches 
-        aggrSwitchNum = ((K/2)*K)       # Aggregation switches
-        edgeSwitchNum = ((K/2)*K)       # Edge switches
-        hostNum = (K*pow((K/2),2))      # Hosts in K-ary FatTree
-
-        # Initialize topology
-        Topo.__init__( self )
-
-        coreSwitches = []
-        aggrSwitches = []
-        edgeSwitches = []
-
-        # Core
-        for core in range(0, coreSwitchNum):
-            coreSwitches.append(self.addSwitch("cs_"+str(core)))
-        # Pod
-        for pod in range(0, podNum):
-        # Aggregate
-            for aggr in range(0, aggrSwitchNum/podNum):
-                aggrThis = self.addSwitch("as_"+str(pod)+"_"+str(aggr))
-                aggrSwitches.append(aggrThis)
-                for x in range((K/2)*aggr, (K/2)*(aggr+1)):
-#                    self.addLink(aggrSwitches[aggr+(aggrSwitchNum/podNum*pod)], coreSwitches[x])
-                    self.addLink(aggrThis, coreSwitches[x])
-        # Edge
-            for edge in range(0, edgeSwitchNum/podNum):
-                edgeThis = self.addSwitch("es_"+str(pod)+"_"+str(edge))
-                edgeSwitches.append(edgeThis)
-                for x in range((edgeSwitchNum/podNum)*pod, ((edgeSwitchNum/podNum)*(pod+1))):
-                    self.addLink(edgeThis, aggrSwitches[x])
-        # Host
-                for x in range(0, (hostNum/podNum/(edgeSwitchNum/podNum))):
-                    self.addLink(edgeThis, self.addHost("h_"+str(pod)+"_"+str(edge)+"_"+str(x)))
-
-topos = { 'fattree': ( lambda: FatTree(4) ) }
+topos = {"data_center":(lambda:data_center(int(input('core_num:')), int(input('pod_num:'))))}

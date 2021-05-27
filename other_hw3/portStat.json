@@ -1,0 +1,84 @@
+{
+   "OFPPortStatsReply": {
+      "body": [
+         {
+            "OFPPortStats": {
+               "collisions": 0, 
+               "duration_nsec": 447000000, 
+               "duration_sec": 544, 
+               "port_no": 4294967294, 
+               "rx_bytes": 0, 
+               "rx_crc_err": 0, 
+               "rx_dropped": 58, 
+               "rx_errors": 0, 
+               "rx_frame_err": 0, 
+               "rx_over_err": 0, 
+               "rx_packets": 0, 
+               "tx_bytes": 0, 
+               "tx_dropped": 0, 
+               "tx_errors": 0, 
+               "tx_packets": 0
+            }
+         }, 
+         {
+            "OFPPortStats": {
+               "collisions": 0, 
+               "duration_nsec": 457000000, 
+               "duration_sec": 544, 
+               "port_no": 1, 
+               "rx_bytes": 8672, 
+               "rx_crc_err": 0, 
+               "rx_dropped": 0, 
+               "rx_errors": 0, 
+               "rx_frame_err": 0, 
+               "rx_over_err": 0, 
+               "rx_packets": 67, 
+               "tx_bytes": 5256, 
+               "tx_dropped": 0, 
+               "tx_errors": 0, 
+               "tx_packets": 41
+            }
+         }, 
+         {
+            "OFPPortStats": {
+               "collisions": 0, 
+               "duration_nsec": 457000000, 
+               "duration_sec": 544, 
+               "port_no": 2, 
+               "rx_bytes": 1006, 
+               "rx_crc_err": 0, 
+               "rx_dropped": 0, 
+               "rx_errors": 0, 
+               "rx_frame_err": 0, 
+               "rx_over_err": 0, 
+               "rx_packets": 13, 
+               "tx_bytes": 10660, 
+               "tx_dropped": 0, 
+               "tx_errors": 0, 
+               "tx_packets": 84
+            }
+         }, 
+         {
+            "OFPPortStats": {
+               "collisions": 0, 
+               "duration_nsec": 457000000, 
+               "duration_sec": 544, 
+               "port_no": 3, 
+               "rx_bytes": 936, 
+               "rx_crc_err": 0, 
+               "rx_dropped": 0, 
+               "rx_errors": 0, 
+               "rx_frame_err": 0, 
+               "rx_over_err": 0, 
+               "rx_packets": 12, 
+               "tx_bytes": 10660, 
+               "tx_dropped": 0, 
+               "tx_errors": 0, 
+               "tx_packets": 84
+            }
+         }
+      ], 
+      "flags": 0, 
+      "type": 4
+   }
+}
